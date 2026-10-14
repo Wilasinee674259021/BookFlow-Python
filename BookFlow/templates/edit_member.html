@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BookFlow | แก้ไขสมาชิก</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="library-background" aria-hidden="true">
+    <span class="floating-book book-one">📚</span>
+    <span class="floating-book book-two">📖</span>
+    <span class="floating-book book-three">📕</span>
+    <span class="floating-book book-four">📗</span>
+    <span class="floating-book book-five">📘</span>
+    <span class="floating-book book-six">📙</span>
+    <span class="floating-book book-seven">✨</span>
+    <span class="floating-book book-eight">📖</span>
+</div>
+    <header class="header">
+        <a class="brand" href="/">BookFlow</a>
+        <a class="button secondary" href="{{ url_for('members') }}">กลับหน้าสมาชิก</a>
+    </header>
+
+    <main class="container">
+        <section class="welcome">
+            <p class="eyebrow">MEMBER MANAGEMENT</p>
+            <h1>แก้ไขข้อมูลสมาชิก</h1>
+            <p class="subtitle">ปรับปรุงข้อมูลสมาชิกแล้วบันทึกการเปลี่ยนแปลง</p>
+        </section>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="messages">
+                    {% for category, message in messages %}
+                        <p class="message {{ category }}">{{ message }}</p>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        <section class="panel">
+            <form method="POST" class="book-form">
+                <div class="form-group">
+                    <label for="member_code">รหัสสมาชิก *</label>
+                    <input id="member_code" name="member_code"
+                           value="{{ member.member_code }}" maxlength="30" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="name">ชื่อ-นามสกุล *</label>
+                    <input id="name" name="name"
+                           value="{{ member.name }}" maxlength="150" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">อีเมล</label>
+                    <input id="email" name="email" type="email"
+                           value="{{ member.email or '' }}" maxlength="150">
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">เบอร์โทรศัพท์</label>
+                    <input id="phone" name="phone"
+                           value="{{ member.phone or '' }}" maxlength="20">
+                </div>
+
+                <button class="button primary" type="submit">บันทึกการแก้ไข</button>
+                <a class="button secondary" href="{{ url_for('members') }}">ยกเลิก</a>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

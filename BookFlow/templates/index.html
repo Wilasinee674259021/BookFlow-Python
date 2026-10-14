@@ -1,0 +1,182 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BookFlow | ระบบจัดการห้องสมุด</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+     <div class="library-background" aria-hidden="true">
+        <span class="floating-book book-one">📚</span>
+        <span class="floating-book book-two">📖</span>
+        <span class="floating-book book-three">📕</span>
+        <span class="floating-book book-four">📗</span>
+        <span class="floating-book book-five">📘</span>
+        <span class="floating-book book-six">📙</span>
+        <span class="floating-book book-seven">✨</span>
+        <span class="floating-book book-eight">📖</span>
+    </div>
+    <header class="header">
+        <a class="brand" href="/">BookFlow</a>
+        <div>
+    <a class="button secondary" href="{{ url_for('members') }}">จัดการสมาชิก</a>
+
+    <a class="button secondary" href="{{ url_for('loans') }}">ระบบยืม–คืน</a>
+    </div>
+</header>
+
+    <main class="container">
+        <section class="welcome">
+            <p class="eyebrow">LIBRARY MANAGEMENT SYSTEM</p>
+            <h1>จัดการห้องสมุดให้ง่ายขึ้น</h1>
+            <p class="subtitle">จัดการหนังสือ สมาชิก และการยืม-คืนได้ในที่เดียว</p>
+        </section>
+
+        <section class="stats">
+            <article class="stat-card">
+                <span>หนังสือในระบบ</span>
+                <strong>{{ total_books }}</strong>
+            </article>
+            <article class="stat-card">
+                <span>สมาชิกทั้งหมด</span>
+                <strong>{{ total_members }}</strong>
+            </article>
+            <article class="stat-card">
+                <span>รายการกำลังยืม</span>
+                <strong>{{ active_loans }}</strong>
+            </article>
+        </section>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="messages">
+                    {% for category, message in messages %}
+                        <p class="message {{ category }}">{{ message }}</p>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">BOOK CATALOG</p>
+                    <h2>จัดการหนังสือ</h2>
+                </div>
+            </div>
+
+            <form action="{{ url_for('add_book') }}" method="POST" class="book-form">
+                <div class="form-group">
+                    <label for="title">ชื่อหนังสือ *</label>
+                    <input id="title" name="title" required maxlength="200"
+                           placeholder="เช่น Python เบื้องต้น">
+                </div>
+
+                <div class="form-group">
+                    <label for="author">ชื่อผู้แต่ง *</label>
+                    <input id="author" name="author" required maxlength="150"
+                           placeholder="ชื่อผู้แต่ง">
+                </div>
+
+                <div class="form-group">
+                    <label for="isbn">ISBN</label>
+                    <input id="isbn" name="isbn" maxlength="30"
+                           placeholder="หมายเลข ISBN">
+                </div>
+
+                <div class="form-group">
+                    <label for="category">หมวดหมู่</label>
+                    <input id="category" name="category" maxlength="100"
+                           placeholder="เช่น เทคโนโลยี">
+                </div>
+
+                <div class="form-group">
+                    <label for="total_copies">จำนวนเล่ม *</label>
+                    <input id="total_copies" name="total_copies" type="number"
+                           min="1" value="1" required>
+                </div>
+
+                <button class="button primary" type="submit">+ เพิ่มหนังสือ</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">YOUR COLLECTION</p>
+                    <h2>รายการหนังสือ</h2>
+                </div>
+            </div>
+
+            <form action="{{ url_for('home') }}" method="GET" class="search-form">
+                <input name="search" value="{{ search }}"
+                       placeholder="ค้นหาชื่อหนังสือ ผู้แต่ง ISBN หรือหมวดหมู่">
+                <button class="button primary" type="submit">ค้นหา</button>
+                {% if search %}
+                    <a class="button secondary" href="{{ url_for('home') }}">ล้าง</a>
+                {% endif %}
+            </form>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ชื่อหนังสือ</th>
+                            <th>ผู้แต่ง</th>
+                            <th>หมวดหมู่</th>
+                            <th>จำนวนทั้งหมด</th>
+                            <th>พร้อมให้ยืม</th>
+                            <th>จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for book in books %}
+                            <tr>
+                                <td>{{ book.title }}</td>
+                                <td>{{ book.author }}</td>
+                                <td>{{ book.category or "-" }}</td>
+                                <td>{{ book.total_copies }}</td>
+                                <td>
+                                    <span class="availability">
+                                        {{ book.available_copies }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="book-actions">
+                                        <a class="button secondary"
+                                           href="{{ url_for('edit_book', book_id=book.id) }}">
+                                            แก้ไข
+                                        </a>
+
+                                        <form action="{{ url_for('delete_book', book_id=book.id) }}"
+                                              method="POST"
+                                              onsubmit="return confirm('ยืนยันการลบหนังสือเล่มนี้หรือไม่?')">
+                                            <button class="button danger" type="submit">ลบ</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="empty">
+                                    {% if search %}
+                                        ไม่พบหนังสือที่ค้นหา
+                                    {% else %}
+                                        ยังไม่มีหนังสือในระบบ ลองเพิ่มหนังสือเล่มแรกได้เลย
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+            <p>BookFlow © 2026 · Python Flask & SQLite</p>
+        </footer>
+    </main>
+</body>
+</html>

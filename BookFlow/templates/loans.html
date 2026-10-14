@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบยืม–คืน | BookFlow</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="library-background" aria-hidden="true">
+    <span class="floating-book book-one">📚</span>
+    <span class="floating-book book-two">📖</span>
+    <span class="floating-book book-three">📕</span>
+    <span class="floating-book book-four">📗</span>
+    <span class="floating-book book-five">📘</span>
+    <span class="floating-book book-six">📙</span>
+    <span class="floating-book book-seven">✨</span>
+    <span class="floating-book book-eight">📖</span>
+</div>
+    <header class="header">
+        <a class="brand" href="/">BookFlow</a>
+        <nav class="header-actions">
+            <a class="button secondary" href="/">หน้าหลัก</a>
+            <a class="button secondary" href="{{ url_for('members') }}">จัดการสมาชิก</a>
+        </nav>
+    </header>
+
+    <main class="container">
+        <section class="welcome">
+            <span class="eyebrow">LIBRARY MANAGEMENT</span>
+            <h1>ระบบยืม–คืนหนังสือ</h1>
+            <p class="subtitle">จัดการการยืม คืนหนังสือ และตรวจสอบค่าปรับ</p>
+        </section>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="messages">
+                    {% for category, message in messages %}
+                        <div class="message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <section class="panel">
+            <div class="section-heading">
+                <h2>ยืมหนังสือ</h2>
+                <p class="subtitle">กำหนดวันคืนภายใน 7 วันนับจากวันที่ยืม</p>
+            </div>
+
+            <form class="book-form" action="{{ url_for('borrow_book') }}" method="POST">
+                <div class="form-group">
+                    <label for="member_id">สมาชิก</label>
+                    <select id="member_id" name="member_id" required>
+                        <option value="">เลือกสมาชิก</option>
+                        {% for member in members %}
+                            <option value="{{ member.id }}">
+                                {{ member.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="book_id">หนังสือ</label>
+                    <select id="book_id" name="book_id" required>
+                        <option value="">เลือกหนังสือ</option>
+                        {% for book in books %}
+                            {% if book.available_copies > 0 %}
+                                <option value="{{ book.id }}">
+                                    {{ book.title }} (เหลือ {{ book.available_copies }} เล่ม)
+                                </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button class="button primary" type="submit">ยืนยันการยืม</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <h2>ประวัติการยืม–คืน</h2>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>รหัส</th>
+                            <th>หนังสือ</th>
+                            <th>สมาชิก</th>
+                            <th>วันที่ยืม</th>
+                            <th>กำหนดคืน</th>
+                            <th>วันที่คืน</th>
+                            <th>สถานะ</th>
+                            <th>ค่าปรับ (บาท)</th>
+                            <th>จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                            <tr>
+                                <td>{{ record.id }}</td>
+                                <td>{{ record.book_title }}</td>
+                                <td>{{ record.member_name }}</td>
+                                <td>{{ record.borrow_date }}</td>
+                                <td>{{ record.due_date }}</td>
+                                <td>{{ record.return_date or '-' }}</td>
+                                <td>
+                                    {% if record.status == "returned" %}
+                                        คืนแล้ว
+                                    {% elif record.due_date < today %}
+                                        เกินกำหนด
+                                    {% else %}
+                                        กำลังยืม
+                                    {% endif %}
+                                </td>
+                                <td>{{ record.current_fine }}</td>
+                                <td>
+                                    {% if record.status != "returned" %}
+                                        <form action="{{ url_for('return_book', loan_id=record.id) }}" method="POST"
+                                              onsubmit="return confirm('ยืนยันการคืนหนังสือเล่มนี้หรือไม่?')">
+                                            <button class="button primary" type="submit">คืนหนังสือ</button>
+                                        </form>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="empty">ยังไม่มีประวัติการยืมหนังสือ</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>BookFlow Library Management System</footer>
+</body>
+</html>

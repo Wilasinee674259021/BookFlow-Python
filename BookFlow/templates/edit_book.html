@@ -1,0 +1,76 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แก้ไขหนังสือ | BookFlow</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="library-background" aria-hidden="true">
+    <span class="floating-book book-one">📚</span>
+    <span class="floating-book book-two">📖</span>
+    <span class="floating-book book-three">📕</span>
+    <span class="floating-book book-four">📗</span>
+    <span class="floating-book book-five">📘</span>
+    <span class="floating-book book-six">📙</span>
+    <span class="floating-book book-seven">✨</span>
+    <span class="floating-book book-eight">📖</span>
+</div>
+    <header class="header">
+        <a class="brand" href="/">BookFlow</a>
+        <span class="header-label">Edit Book</span>
+    </header>
+
+    <main class="container">
+        <section class="welcome">
+            <p class="eyebrow">BOOK CATALOG</p>
+            <h1>แก้ไขข้อมูลหนังสือ</h1>
+            <p class="subtitle">แก้ไขรายละเอียดหนังสือแล้วบันทึกข้อมูล</p>
+        </section>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="messages">
+                    {% for category, message in messages %}
+                        <p class="message {{ category }}">{{ message }}</p>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        <section class="panel">
+            <form method="POST" class="book-form">
+                <div class="form-group">
+                    <label for="title">ชื่อหนังสือ *</label>
+                    <input id="title" name="title" value="{{ book.title }}" required maxlength="200">
+                </div>
+
+                <div class="form-group">
+                    <label for="author">ชื่อผู้แต่ง *</label>
+                    <input id="author" name="author" value="{{ book.author }}" required maxlength="150">
+                </div>
+
+                <div class="form-group">
+                    <label for="isbn">ISBN</label>
+                    <input id="isbn" name="isbn" value="{{ book.isbn or '' }}" maxlength="30">
+                </div>
+
+                <div class="form-group">
+                    <label for="category">หมวดหมู่</label>
+                    <input id="category" name="category" value="{{ book.category or '' }}" maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label for="total_copies">จำนวนหนังสือทั้งหมด *</label>
+                    <input id="total_copies" name="total_copies" type="number" min="1" value="{{ book.total_copies }}" required>
+                </div>
+
+                <button class="button primary" type="submit">บันทึกการแก้ไข</button>
+                <a class="button secondary" href="{{ url_for('home') }}">กลับหน้าหลัก</a>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

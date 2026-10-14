@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BookFlow | จัดการสมาชิก</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="library-background" aria-hidden="true">
+    <span class="floating-book book-one">📚</span>
+    <span class="floating-book book-two">📖</span>
+    <span class="floating-book book-three">📕</span>
+    <span class="floating-book book-four">📗</span>
+    <span class="floating-book book-five">📘</span>
+    <span class="floating-book book-six">📙</span>
+    <span class="floating-book book-seven">✨</span>
+    <span class="floating-book book-eight">📖</span>
+</div>
+    <header class="header">
+        <a class="brand" href="/">BookFlow</a>
+        <a class="button secondary" href="/">กลับหน้าหลัก</a>
+    </header>
+
+    <main class="container">
+        <section class="welcome">
+            <p class="eyebrow">MEMBER MANAGEMENT</p>
+            <h1>จัดการสมาชิก</h1>
+            <p class="subtitle">เพิ่ม แก้ไข ลบ และค้นหาข้อมูลสมาชิกห้องสมุด</p>
+        </section>
+
+        <section class="stats">
+            <article class="stat-card">
+                <span>สมาชิกทั้งหมด</span>
+                <strong>{{ total_members }}</strong>
+            </article>
+        </section>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="messages">
+                    {% for category, message in messages %}
+                        <p class="message {{ category }}">{{ message }}</p>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        <section class="panel">
+            <div class="section-heading">
+                <p class="eyebrow">NEW MEMBER</p>
+                <h2>เพิ่มสมาชิกใหม่</h2>
+            </div>
+
+            <form action="{{ url_for('add_member') }}" method="POST" class="book-form">
+                <div class="form-group">
+                    <label for="member_code">รหัสสมาชิก *</label>
+                    <input
+                        id="member_code"
+                        name="member_code"
+                        maxlength="30"
+                        required
+                        placeholder="เช่น M001"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="name">ชื่อ-นามสกุล *</label>
+                    <input
+                        id="name"
+                        name="name"
+                        maxlength="150"
+                        required
+                        placeholder="ชื่อสมาชิก"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="email">อีเมล</label>
+                    <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        maxlength="150"
+                        placeholder="example@email.com"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">เบอร์โทรศัพท์</label>
+                    <input
+                        id="phone"
+                        name="phone"
+                        maxlength="20"
+                        placeholder="08XXXXXXXX"
+                    >
+                </div>
+
+                <button class="button primary" type="submit">+ เพิ่มสมาชิก</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <p class="eyebrow">MEMBER DIRECTORY</p>
+                <h2>รายชื่อสมาชิก</h2>
+            </div>
+
+            <form action="{{ url_for('members') }}" method="GET" class="search-form">
+                <input
+                    name="search"
+                    value="{{ search }}"
+                    placeholder="ค้นหารหัส ชื่อ อีเมล หรือเบอร์โทรศัพท์"
+                >
+
+                <button class="button primary" type="submit">ค้นหา</button>
+
+                {% if search %}
+                    <a class="button secondary" href="{{ url_for('members') }}">ล้าง</a>
+                {% endif %}
+            </form>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>รหัสสมาชิก</th>
+                            <th>ชื่อ-นามสกุล</th>
+                            <th>อีเมล</th>
+                            <th>เบอร์โทรศัพท์</th>
+                            <th>จัดการ</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for member in members %}
+                            <tr>
+                                <td>{{ member.member_code }}</td>
+                                <td>{{ member.name }}</td>
+                                <td>{{ member.email or "-" }}</td>
+                                <td>{{ member.phone or "-" }}</td>
+                                <td>
+                                    <div class="book-actions">
+                                        <a
+                                            class="button secondary"
+                                            href="{{ url_for('edit_member', member_id=member.id) }}"
+                                        >
+                                            แก้ไข
+                                        </a>
+
+                                        <form
+                                            action="{{ url_for('delete_member', member_id=member.id) }}"
+                                            method="POST"
+                                            onsubmit="return confirm('ยืนยันการลบสมาชิกคนนี้หรือไม่?')"
+                                        >
+                                            <button class="button danger" type="submit">
+                                                ลบ
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="empty">
+                                    {% if search %}
+                                        ไม่พบสมาชิกที่ค้นหา
+                                    {% else %}
+                                        ยังไม่มีสมาชิกในระบบ
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+            <p>BookFlow © 2026 · Python Flask & SQLite</p>
+        </footer>
+    </main>
+</body>
+</html>
