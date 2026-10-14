@@ -317,4 +317,297 @@ def edit_member(member_id):
                     SET member_code = ?, name = ?, email = ?, phone = ?
                     WHERE id = ?
                     """,
-                    (member_code,
+                    (member_code, name, email, phone, member_id),
+                )
+                connection.commit()
+                flash("แก้ไขข้อมูลสมาชิกสำเร็จ", "success")
+                return redirect(url_for("members"))
+            except Exception:
+                connection.rollback()
+                flash("รหัสสมาชิกหรืออีเมลนี้อาจมีอยู่ในระบบแล้ว", "error")
+                return redirect(url_for("edit_member", member_id=member_id))
+
+        return render_template("edit_member.html", member=member)
+    finally:
+        connection.close()
+
+
+@app.route("/members/delete/<int:member_id>", methods=["POST"])
+def delete_member(member_id):
+    connection = get_db_connection()
+
+    try:
+        member = connection.execute(
+            "SELECT id FROM members WHERE id = ?",
+            (member_id,),
+        ).fetchone()
+
+        if member is None:
+            flash("ไม่พบสมาชิกที่ต้องการลบ", "error")
+            return redirect(url_for("members"))
+
+        history = connection.execute(
+            "SELECT COUNT(*) FROM borrow_records WHERE member_id = ?",
+            (member_id,),
+        ).fetchone()[0]
+
+        if history > 0:
+            flash("ไม่สามารถลบสมาชิกที่มีประวัติการยืมหนังสือได้", "error")
+            return redirect(url_for("members"))
+
+        connection.execute(
+            "DELETE FROM members WHERE id = ?",
+            (member_id,),
+        )
+        connection.commit()
+        flash("ลบสมาชิกสำเร็จ", "success")
+    except Exception:
+        connection.rollback()
+        flash("ไม่สามารถลบสมาชิกได้", "error")
+    finally:
+        connection.close()
+
+    return redirect(url_for("members"))
+
+
+@app.route("/loans")
+def loans():
+    search = request.args.get("search", "").strip()
+    connection = get_db_connection()
+
+    try:
+        sql = """
+            SELECT
+                br.id,
+                br.borrow_date,
+                br.due_date,
+                br.return_date,
+                br.fine,
+                br.status,
+                b.title AS book_title,
+                b.author AS book_author,
+                m.member_code,
+                m.name AS member_name,
+                CASE
+                    WHEN br.status = 'borrowed'
+                         AND date('now', 'localtime') > br.due_date
+                    THEN CAST(
+                        julianday(date('now', 'localtime'))
+                        - julianday(br.due_date) AS INTEGER
+                    ) * 5
+                    ELSE br.fine
+                END AS current_fine
+            FROM borrow_records br
+            JOIN books b ON b.id = br.book_id
+            JOIN members m ON m.id = br.member_id
+        """
+        params = []
+
+        if search:
+            keyword = f"%{search}%"
+            sql += """
+                WHERE b.title LIKE ?
+                   OR b.author LIKE ?
+                   OR m.member_code LIKE ?
+                   OR m.name LIKE ?
+            """
+            params = [keyword, keyword, keyword, keyword]
+
+        sql += """
+            ORDER BY
+                CASE WHEN br.status = 'borrowed' THEN 0 ELSE 1 END,
+                br.id DESC
+        """
+
+        records = connection.execute(sql, params).fetchall()
+
+        books = connection.execute(
+            """
+            SELECT
+                b.id,
+                b.title,
+                b.author,
+                b.total_copies - (
+                    SELECT COUNT(*)
+                    FROM borrow_records br
+                    WHERE br.book_id = b.id
+                      AND br.status = 'borrowed'
+                ) AS available_copies
+            FROM books b
+            ORDER BY b.title
+            """
+        ).fetchall()
+
+        members_list = connection.execute(
+            "SELECT id, member_code, name FROM members ORDER BY name"
+        ).fetchall()
+
+        active_loans = connection.execute(
+            "SELECT COUNT(*) FROM borrow_records WHERE status = 'borrowed'"
+        ).fetchone()[0]
+
+        overdue_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM borrow_records
+            WHERE status = 'borrowed'
+              AND due_date < date('now', 'localtime')
+            """
+        ).fetchone()[0]
+
+        return render_template(
+            "loans.html",
+            records=records,
+            books=books,
+            members=members_list,
+            search=search,
+            active_loans=active_loans,
+            overdue_count=overdue_count,
+            today=date.today().isoformat(),
+        )
+    finally:
+        connection.close()
+
+
+@app.route("/loans/borrow", methods=["POST"])
+def borrow_book():
+    book_id = request.form.get("book_id", type=int)
+    member_id = request.form.get("member_id", type=int)
+
+    if not book_id or not member_id:
+        flash("กรุณาเลือกหนังสือและสมาชิก", "error")
+        return redirect(url_for("loans"))
+
+    connection = get_db_connection()
+
+    try:
+        book = connection.execute(
+            """
+            SELECT
+                b.id,
+                b.total_copies - (
+                    SELECT COUNT(*)
+                    FROM borrow_records br
+                    WHERE br.book_id = b.id
+                      AND br.status = 'borrowed'
+                ) AS available_copies
+            FROM books b
+            WHERE b.id = ?
+            """,
+            (book_id,),
+        ).fetchone()
+
+        member = connection.execute(
+            "SELECT id FROM members WHERE id = ?",
+            (member_id,),
+        ).fetchone()
+
+        if book is None or member is None:
+            flash("ไม่พบหนังสือหรือสมาชิกที่เลือก", "error")
+            return redirect(url_for("loans"))
+
+        if book["available_copies"] <= 0:
+            flash("หนังสือเล่มนี้ไม่มีสำเนาว่างให้ยืม", "error")
+            return redirect(url_for("loans"))
+
+        active_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM borrow_records
+            WHERE member_id = ? AND status = 'borrowed'
+            """,
+            (member_id,),
+        ).fetchone()[0]
+
+        if active_count >= 3:
+            flash("สมาชิกคนนี้ยืมหนังสือค้างอยู่ครบ 3 รายการแล้ว", "error")
+            return redirect(url_for("loans"))
+
+        borrow_date = date.today()
+        due_date = borrow_date + timedelta(days=7)
+
+        connection.execute(
+            """
+            INSERT INTO borrow_records
+                (book_id, member_id, borrow_date, due_date, status, fine)
+            VALUES (?, ?, ?, ?, 'borrowed', 0)
+            """,
+            (
+                book_id,
+                member_id,
+                borrow_date.isoformat(),
+                due_date.isoformat(),
+            ),
+        )
+
+        connection.commit()
+        flash(
+            f"ยืมหนังสือสำเร็จ กำหนดคืนวันที่ {due_date.strftime('%d/%m/%Y')}",
+            "success",
+        )
+    except Exception:
+        connection.rollback()
+        flash("ไม่สามารถทำรายการยืมได้ กรุณาลองใหม่", "error")
+    finally:
+        connection.close()
+
+    return redirect(url_for("loans"))
+
+
+@app.route("/loans/return/<int:loan_id>", methods=["POST"])
+def return_book(loan_id):
+    connection = get_db_connection()
+
+    try:
+        record = connection.execute(
+            """
+            SELECT id, due_date, status
+            FROM borrow_records
+            WHERE id = ?
+            """,
+            (loan_id,),
+        ).fetchone()
+
+        if record is None:
+            flash("ไม่พบรายการยืมหนังสือ", "error")
+            return redirect(url_for("loans"))
+
+        if record["status"] == "returned":
+            flash("รายการนี้คืนหนังสือแล้ว", "error")
+            return redirect(url_for("loans"))
+
+        return_date = date.today()
+        due_date = date.fromisoformat(record["due_date"])
+        overdue_days = max((return_date - due_date).days, 0)
+        fine = overdue_days * 5
+
+        connection.execute(
+            """
+            UPDATE borrow_records
+            SET return_date = ?, status = 'returned', fine = ?
+            WHERE id = ?
+            """,
+            (return_date.isoformat(), fine, loan_id),
+        )
+
+        connection.commit()
+
+        if fine > 0:
+            flash(
+                f"คืนหนังสือสำเร็จ ล่าช้า {overdue_days} วัน ค่าปรับ {fine} บาท",
+                "success",
+            )
+        else:
+            flash("คืนหนังสือสำเร็จ ไม่มีค่าปรับ", "success")
+    except Exception:
+        connection.rollback()
+        flash("ไม่สามารถคืนหนังสือได้ กรุณาลองใหม่", "error")
+    finally:
+        connection.close()
+
+    return redirect(url_for("loans"))
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
