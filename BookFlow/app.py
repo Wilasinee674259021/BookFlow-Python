@@ -220,4 +220,101 @@ def members():
 
     try:
         if search:
-            keyword = f"%
+            keyword = f"%{search}%"
+            member_list = connection.execute(
+                """
+                SELECT * FROM members
+                WHERE member_code LIKE ?
+                   OR name LIKE ?
+                   OR COALESCE(email, '') LIKE ?
+                   OR COALESCE(phone, '') LIKE ?
+                ORDER BY id DESC
+                """,
+                (keyword, keyword, keyword, keyword),
+            ).fetchall()
+        else:
+            member_list = connection.execute(
+                "SELECT * FROM members ORDER BY id DESC"
+            ).fetchall()
+
+        total_members = connection.execute(
+            "SELECT COUNT(*) FROM members"
+        ).fetchone()[0]
+
+        return render_template(
+            "members.html",
+            members=member_list,
+            search=search,
+            total_members=total_members,
+        )
+    finally:
+        connection.close()
+
+
+@app.route("/members/add", methods=["POST"])
+def add_member():
+    member_code = request.form.get("member_code", "").strip()
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip() or None
+    phone = request.form.get("phone", "").strip() or None
+
+    if not member_code or not name:
+        flash("กรุณากรอกรหัสสมาชิกและชื่อสมาชิก", "error")
+        return redirect(url_for("members"))
+
+    connection = get_db_connection()
+
+    try:
+        connection.execute(
+            """
+            INSERT INTO members (member_code, name, email, phone)
+            VALUES (?, ?, ?, ?)
+            """,
+            (member_code, name, email, phone),
+        )
+        connection.commit()
+        flash("เพิ่มสมาชิกสำเร็จ", "success")
+    except Exception as error:
+        connection.rollback()
+        if "UNIQUE constraint failed" in str(error):
+            flash("รหัสสมาชิกหรืออีเมลนี้มีอยู่ในระบบแล้ว", "error")
+        else:
+            flash("ไม่สามารถเพิ่มสมาชิกได้ กรุณาตรวจสอบข้อมูล", "error")
+    finally:
+        connection.close()
+
+    return redirect(url_for("members"))
+
+
+@app.route("/members/edit/<int:member_id>", methods=["GET", "POST"])
+def edit_member(member_id):
+    connection = get_db_connection()
+
+    try:
+        member = connection.execute(
+            "SELECT * FROM members WHERE id = ?",
+            (member_id,),
+        ).fetchone()
+
+        if member is None:
+            flash("ไม่พบสมาชิกที่ต้องการแก้ไข", "error")
+            return redirect(url_for("members"))
+
+        if request.method == "POST":
+            member_code = request.form.get("member_code", "").strip()
+            name = request.form.get("name", "").strip()
+            email = request.form.get("email", "").strip() or None
+            phone = request.form.get("phone", "").strip() or None
+
+            if not member_code or not name:
+                flash("กรุณากรอกรหัสสมาชิกและชื่อสมาชิก", "error")
+                return redirect(url_for("edit_member", member_id=member_id))
+
+            try:
+                connection.execute(
+                    """
+                    UPDATE members
+                    SET member_code = ?, name = ?, email = ?, phone = ?
+                    WHERE id = ?
+                    """,
+                    (member_code,
