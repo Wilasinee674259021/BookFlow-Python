@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "BookFlow/index.py",
+      "src": "BookFlow/app.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "BookFlow/index.py"
+      "dest": "BookFlow/app.py"
     }
   ]
 }
